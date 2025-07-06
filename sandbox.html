@@ -1,15 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebGL Sand Sandbox</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>WebGL Sand Sandbox with AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet"/>
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            overflow: hidden; /* Prevent scrollbars from appearing */
+            overflow: hidden; /* Prevent scrollbars */
+            margin: 0; /* Remove default margin */
         }
         canvas {
             display: block;
@@ -25,7 +26,12 @@
             color: white;
             box-shadow: 0 0 0 2px #a5b4fc;
         }
-        /* Custom styles for range slider */
+        .pause-btn.paused {
+            background-color: #ca8a04; /* Amber */
+        }
+         .pause-btn.paused:hover {
+            background-color: #a16207;
+        }
         input[type=range] {
             -webkit-appearance: none;
             background: transparent;
@@ -46,6 +52,10 @@
             width: 1.25rem;
             border-radius: 50%;
         }
+        #loader-modal {
+            background-color: rgba(17, 24, 39, 0.8);
+            backdrop-filter: blur(4px);
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-white flex flex-col h-screen w-screen">
@@ -53,26 +63,44 @@
     <!-- Controls -->
     <div id="controls" class="w-full bg-gray-800 p-2 flex flex-wrap justify-center items-center gap-2 shadow-lg z-10">
         <span class="font-bold mr-2">Elements:</span>
-        <button class="control-button px-3 py-1.5 bg-gray-700 rounded-md hover:bg-gray-600 transition-colors duration-200" data-type="0">Eraser</button>
-        <button id="sand-btn" class="control-button px-3 py-1.5 bg-gray-700 rounded-md hover:bg-gray-600 transition-colors duration-200" data-type="1">Sand</button>
-        <button id="water-btn" class="control-button px-3 py-1.5 bg-gray-700 rounded-md hover:bg-gray-600 transition-colors duration-200" data-type="2">Water</button>
-        <button id="dirt-btn" class="control-button px-3 py-1.5 bg-gray-700 rounded-md hover:bg-gray-600 transition-colors duration-200" data-type="3">Dirt</button>
-        <button id="stone-btn" class="control-button px-3 py-1.5 bg-gray-700 rounded-md hover:bg-gray-600 transition-colors duration-200" data-type="4">Stone</button>
-        <button id="sprout-btn" class="control-button px-3 py-1.5 bg-gray-700 rounded-md hover:bg-gray-600 transition-colors duration-200" data-type="5">Sprout</button>
+        <button class="control-button px-3 py-1.5 bg-gray-700 rounded-md hover:bg-gray-600" data-type="0">Eraser</button>
+        <button id="sand-btn" class="control-button px-3 py-1.5 bg-gray-700 rounded-md hover:bg-gray-600" data-type="1">Sand</button>
+        <button id="water-btn" class="control-button px-3 py-1.5 bg-gray-700 rounded-md hover:bg-gray-600" data-type="2">Water</button>
+        <button id="dirt-btn" class="control-button px-3 py-1.5 bg-gray-700 rounded-md hover:bg-gray-600" data-type="3">Dirt</button>
+        <button id="stone-btn" class="control-button px-3 py-1.5 bg-gray-700 rounded-md hover:bg-gray-600" data-type="4">Stone</button>
+        <button id="sprout-btn" class="control-button px-3 py-1.5 bg-gray-700 rounded-md hover:bg-gray-600" data-type="5">Sprout</button>
         <div class="w-px h-6 bg-gray-600 mx-2"></div>
-         <label for="brush-size" class="mr-2">Brush Size:</label>
-        <input type="range" id="brush-size" min="1" max="20" value="5" class="w-32">
-        <span id="brush-size-label" class="ml-2 w-6 text-center">5</span>
+        <label for="brush-size" class="mr-2">Brush:</label>
+        <input type="range" id="brush-size" min="1" max="25" value="5" class="w-24">
+        <span id="brush-size-label" class="ml-1 w-6 text-center">5</span>
         <div class="w-px h-6 bg-gray-600 mx-2"></div>
-        <button id="clear-btn" class="px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded-md transition-colors duration-200">Clear All</button>
+        <button id="generate-btn" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 rounded-md">✨ AI Gen</button>
+        <button id="save-btn" class="px-3 py-1.5 bg-green-600 hover:bg-green-500 rounded-md">Save</button>
+        <button id="load-btn" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-md">Load</button>
+        <div class="w-px h-6 bg-gray-600 mx-2"></div>
+        <button id="pause-btn" class="pause-btn px-3 py-1.5 bg-yellow-600 hover:bg-yellow-500 rounded-md">Pause</button>
+        <button id="reset-btn" class="px-3 py-1.5 bg-gray-600 hover:bg-gray-500 rounded-md">Reset</button>
+        <button id="clear-btn" class="px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded-md">Clear</button>
     </div>
 
-    <!-- Canvas Container -->
-    <div class="flex-grow w-full h-full">
-        <canvas id="gl-canvas"></canvas>
+    <!-- Error Fallback -->
+    <div id="webgl-error" class="hidden w-full bg-red-800 p-4 text-center text-white font-bold">
+        WebGL is not supported or is disabled in this browser. Please use a modern browser like Chrome or Firefox.
+    </div>
+    
+    <!-- Loader Modal -->
+    <div id="loader-modal" class="hidden absolute inset-0 z-50 flex justify-center items-center">
+        <div class="text-center">
+            <div class="text-2xl font-bold">✨ Generating a new world...</div>
+            <div class="text-gray-400">The AI is thinking. Please wait.</div>
+        </div>
     </div>
 
-    <!-- Vertex Shader -->
+    <div class="flex-grow w-full h-full relative">
+        <canvas id="gl-canvas" class="absolute top-0 left-0"></canvas>
+    </div>
+
+    <!-- Shaders -->
     <script id="vertex-shader" type="x-shader/x-vertex">
         attribute vec2 a_position;
         varying vec2 v_texCoord;
@@ -81,14 +109,11 @@
             v_texCoord = a_position * 0.5 + 0.5;
         }
     </script>
-
-    <!-- Fragment Shader -->
     <script id="fragment-shader" type="x-shader/x-fragment">
         precision mediump float;
         uniform sampler2D u_grid;
         varying vec2 v_texCoord;
 
-        // Particle Colors
         const vec3 EMPTY_COLOR = vec3(0.1, 0.1, 0.15);
         const vec3 SAND_COLOR = vec3(0.96, 0.83, 0.55);
         const vec3 WATER_COLOR = vec3(0.2, 0.5, 1.0);
@@ -97,49 +122,42 @@
         const vec3 SPROUT_COLOR = vec3(0.3, 0.8, 0.2);
         const vec3 PLANT_COLOR = vec3(0.1, 0.5, 0.1);
 
-
         void main() {
             vec4 pixel = texture2D(u_grid, v_texCoord);
-            float type = pixel.r * 255.0;
-
+            float type = pixel.a * 255.0; 
             vec3 color = EMPTY_COLOR;
-            if (type == 1.0) {
-                color = SAND_COLOR;
-            } else if (type == 2.0) {
-                color = WATER_COLOR;
-            } else if (type == 3.0) {
-                color = DIRT_COLOR;
-            } else if (type == 4.0) {
-                color = STONE_COLOR;
-            } else if (type == 5.0) {
-                color = SPROUT_COLOR;
-            } else if (type == 6.0) {
-                color = PLANT_COLOR;
-            }
 
+            if (type >= 0.5 && type < 1.5) color = SAND_COLOR;
+            else if (type >= 1.5 && type < 2.5) color = WATER_COLOR;
+            else if (type >= 2.5 && type < 3.5) color = DIRT_COLOR;
+            else if (type >= 3.5 && type < 4.5) color = STONE_COLOR;
+            else if (type >= 4.5 && type < 5.5) color = SPROUT_COLOR;
+            else if (type >= 5.5 && type < 6.5) color = PLANT_COLOR;
+            
             gl_FragColor = vec4(color, 1.0);
         }
     </script>
 
+    <!-- Main Script -->
     <script type="module">
-        // --- Main Application ---
         const canvas = document.getElementById('gl-canvas');
         const gl = canvas.getContext('webgl', { preserveDrawingBuffer: true });
 
-        // Particle type constants
-        const EMPTY = 0;
-        const SAND = 1;
-        const WATER = 2;
-        const DIRT = 3;
-        const STONE = 4;
-        const SPROUT = 5;
-        const PLANT = 6;
+        if (!gl) {
+            document.getElementById('controls').style.display = 'none';
+            document.querySelector('.flex-grow').style.display = 'none';
+            document.getElementById('webgl-error').classList.remove('hidden');
+            throw new Error("WebGL not supported.");
+        }
 
-        let gridWidth, gridHeight;
-        let grid;
+        const EMPTY = 0, SAND = 1, WATER = 2, DIRT = 3, STONE = 4, SPROUT = 5, PLANT = 6;
+        const materials = { "sand": SAND, "water": WATER, "dirt": DIRT, "stone": STONE, "sprout": SPROUT, "empty": EMPTY };
+        
+        let gridWidth, gridHeight, grid;
         let activeBrush = SAND;
         let isMouseDown = false;
         let brushSize = 5;
+        let isPaused = false;
 
         // --- WebGL Setup ---
         function createShader(gl, type, source) {
@@ -147,122 +165,103 @@
             gl.shaderSource(shader, source);
             gl.compileShader(shader);
             if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-                console.error('Error compiling shader:', gl.getShaderInfoLog(shader));
-                gl.deleteShader(shader);
-                return null;
+                console.error("Error compiling shader:", gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader); return null;
             }
             return shader;
         }
 
-        function createProgram(gl, vertexShader, fragmentShader) {
+        function createProgram(gl, vs, fs) {
             const program = gl.createProgram();
-            gl.attachShader(program, vertexShader);
-            gl.attachShader(program, fragmentShader);
+            gl.attachShader(program, vs);
+            gl.attachShader(program, fs);
             gl.linkProgram(program);
             if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-                console.error('Error linking program:', gl.getProgramInfoLog(program));
-                gl.deleteProgram(program);
-                return null;
+                console.error("Error linking program:", gl.getProgramInfoLog(program));
+                gl.deleteProgram(program); return null;
             }
             return program;
         }
 
-        const vertexShaderSource = document.getElementById('vertex-shader').text;
-        const fragmentShaderSource = document.getElementById('fragment-shader').text;
+        const vs = createShader(gl, gl.VERTEX_SHADER, document.getElementById('vertex-shader').text);
+        const fs = createShader(gl, gl.FRAGMENT_SHADER, document.getElementById('fragment-shader').text);
+        const program = createProgram(gl, vs, fs);
 
-        const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
-        const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
-        const program = createProgram(gl, vertexShader, fragmentShader);
+        const posLoc = gl.getAttribLocation(program, "a_position");
+        const texLoc = gl.getUniformLocation(program, "u_grid");
 
-        const positionAttributeLocation = gl.getAttribLocation(program, "a_position");
-        const gridUniformLocation = gl.getUniformLocation(program, "u_grid");
+        const posBuf = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);
 
-        const positionBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-        const positions = [-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1];
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
-
-        const gridTexture = gl.createTexture();
-        gl.bindTexture(gl.TEXTURE_2D, gridTexture);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        const gridTex = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, gridTex);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-        // --- Simulation Logic ---
+        // --- Grid and Simulation Logic ---
         function initGrid() {
-            // Scale grid resolution down for performance
-            const resolutionScale = 0.25; 
-            gridWidth = Math.floor(canvas.clientWidth * resolutionScale);
-            gridHeight = Math.floor(canvas.clientHeight * resolutionScale);
+            const scale = 0.25;
+            const parent = canvas.parentElement;
+            gridWidth = Math.floor(parent.clientWidth * scale);
+            gridHeight = Math.floor(parent.clientHeight * scale);
             canvas.width = gridWidth;
             canvas.height = gridHeight;
             gl.viewport(0, 0, gridWidth, gridHeight);
-            
             grid = new Uint8Array(gridWidth * gridHeight);
             grid.fill(EMPTY);
         }
 
+        function setCell(x, y, val) {
+            if (x < 0 || x >= gridWidth || y < 0 || y >= gridHeight) return;
+            grid[y * gridWidth + x] = val;
+        }
+
         function getCell(x, y) {
-            if (x < 0 || x >= gridWidth || y < 0 || y >= gridHeight) {
-                return STONE; // Treat out of bounds as stone
-            }
+            if (x < 0 || x >= gridWidth || y < 0 || y >= gridHeight) return STONE;
             return grid[y * gridWidth + x];
         }
-
-        function setCell(x, y, value) {
-            if (x < 0 || x >= gridWidth || y < 0 || y >= gridHeight) {
-                return;
-            }
-            grid[y * gridWidth + x] = value;
-        }
-
-        function updateSimulation() {
+        
+        function update() {
             for (let y = gridHeight - 1; y >= 0; y--) {
                 const scanDirection = Math.random() > 0.5 ? 1 : -1;
                 for (let i = 0; i < gridWidth; i++) {
                     const x = scanDirection === 1 ? i : (gridWidth - 1 - i);
                     const type = getCell(x, y);
 
-                    // Skip empty cells and static cells
                     if (type === EMPTY || type === STONE || type === PLANT) continue;
                     
-                    // --- Particle Behavior ---
                     if (type === SAND || type === DIRT) {
                         const below = getCell(x, y + 1);
                         if (below === EMPTY || below === WATER) {
-                            setCell(x, y, below);
-                            setCell(x, y + 1, type);
+                            setCell(x, y, below); setCell(x, y + 1, type);
                         } else {
                             const dir = Math.random() > 0.5 ? 1 : -1;
                             const belowSide = getCell(x + dir, y + 1);
                             if (belowSide === EMPTY || belowSide === WATER) {
-                                setCell(x, y, belowSide);
-                                setCell(x + dir, y + 1, type);
+                                setCell(x, y, belowSide); setCell(x + dir, y + 1, type);
                             } else {
                                 const belowOtherSide = getCell(x - dir, y + 1);
                                 if (belowOtherSide === EMPTY || belowOtherSide === WATER) {
-                                    setCell(x, y, belowOtherSide);
-                                    setCell(x - dir, y + 1, type);
+                                    setCell(x, y, belowOtherSide); setCell(x - dir, y + 1, type);
                                 }
                             }
                         }
                     } else if (type === WATER) {
                         const below = getCell(x, y + 1);
                         if (below === EMPTY) {
-                            setCell(x, y, EMPTY);
-                            setCell(x, y + 1, WATER);
+                            setCell(x, y, EMPTY); setCell(x, y + 1, WATER);
                         } else {
                              const dir = Math.random() > 0.5 ? 1 : -1;
                              const side = getCell(x + dir, y);
                              if(side === EMPTY) {
-                                setCell(x, y, EMPTY);
-                                setCell(x + dir, y, WATER);
+                                setCell(x, y, EMPTY); setCell(x + dir, y, WATER);
                              } else {
                                 const otherSide = getCell(x - dir, y);
                                 if(otherSide === EMPTY) {
-                                    setCell(x, y, EMPTY);
-                                    setCell(x - dir, y, WATER);
+                                    setCell(x, y, EMPTY); setCell(x - dir, y, WATER);
                                 }
                              }
                         }
@@ -285,105 +284,238 @@
             }
         }
 
-        // --- Rendering Loop ---
+        // --- Drawing and Main Loop ---
         function draw() {
-            gl.clearColor(0, 0, 0, 1);
-            gl.clear(gl.COLOR_BUFFER_BIT);
-
             gl.useProgram(program);
-
-            gl.bindTexture(gl.TEXTURE_2D, gridTexture);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, gridWidth, gridHeight, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, grid);
-
-            gl.enableVertexAttribArray(positionAttributeLocation);
-            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-            gl.vertexAttribPointer(positionAttributeLocation, 2, gl.FLOAT, false, 0, 0);
-
-            gl.uniform1i(gridUniformLocation, 0);
-
+            gl.bindTexture(gl.TEXTURE_2D, gridTex);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.ALPHA, gridWidth, gridHeight, 0, gl.ALPHA, gl.UNSIGNED_BYTE, grid);
+            
+            gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
+            gl.enableVertexAttribArray(posLoc);
+            gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+            gl.uniform1i(texLoc, 0);
             gl.drawArrays(gl.TRIANGLES, 0, 6);
         }
 
-        function gameLoop() {
-            updateSimulation();
+        function loop() {
+            if (!isPaused) {
+                update();
+            }
             draw();
-            requestAnimationFrame(gameLoop);
+            requestAnimationFrame(loop);
         }
 
         // --- User Interaction ---
-        function paintOnCanvas(e) {
+        function paint(e) {
             if (!isMouseDown) return;
             const rect = canvas.getBoundingClientRect();
             const x = Math.floor((e.clientX - rect.left) / rect.width * gridWidth);
             const y = Math.floor((e.clientY - rect.top) / rect.height * gridHeight);
-
             for (let dx = -brushSize; dx <= brushSize; dx++) {
                 for (let dy = -brushSize; dy <= brushSize; dy++) {
                     if (dx * dx + dy * dy < brushSize * brushSize) {
-                        const cellX = x + dx;
-                        const cellY = y + dy;
-                        // Allow painting over anything except stone, unless erasing.
-                        if (getCell(cellX, cellY) !== STONE || activeBrush === EMPTY) {
-                           setCell(cellX, cellY, activeBrush);
-                        }
+                        setCell(x + dx, y + dy, activeBrush);
                     }
                 }
             }
         }
-
-        canvas.addEventListener('mousedown', (e) => {
-            isMouseDown = true;
-            paintOnCanvas(e);
-        });
-        canvas.addEventListener('mouseup', () => { isMouseDown = false; });
-        canvas.addEventListener('mouseleave', () => { isMouseDown = false; });
-        canvas.addEventListener('mousemove', paintOnCanvas);
         
-        canvas.addEventListener('touchstart', (e) => {
-            isMouseDown = true;
-            paintOnCanvas(e.touches[0]);
-        }, { passive: true });
-        canvas.addEventListener('touchend', () => { isMouseDown = false; });
-        canvas.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            paintOnCanvas(e.touches[0]);
-        }, { passive: false });
+        // --- Gemini API Scenario Generation ---
+        const loaderModal = document.getElementById('loader-modal');
 
-        // --- Control Setup ---
-        const controlButtons = document.querySelectorAll('.control-button');
-        function setActiveButton(button) {
-            controlButtons.forEach(btn => btn.classList.remove('active'));
-            button.classList.add('active');
-            activeBrush = parseInt(button.dataset.type, 10);
+        async function generateScenario() {
+            loaderModal.classList.remove('hidden');
+            
+            const prompt = `Create a simple 2D landscape for a falling sand simulation. The world is ${gridWidth} pixels wide and ${gridHeight} pixels high. Use only the materials: "stone", "dirt", "water", "sand", "sprout". Describe the world as a series of drawing commands. For example, a layer of stone at the bottom, some dirt on top, and a pool of water. Be creative: you can make caves, floating islands, waterfalls, etc.`;
+
+            const payload = {
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            layers: {
+                                type: "ARRAY",
+                                items: {
+                                    type: "OBJECT",
+                                    properties: {
+                                        shape: { type: "STRING", enum: ["rect", "line"] },
+                                        material: { type: "STRING", enum: ["stone", "dirt", "water", "sand", "sprout", "empty"] },
+                                        x1: { type: "NUMBER" },
+                                        y1: { type: "NUMBER" },
+                                        x2: { type: "NUMBER" },
+                                        y2: { type: "NUMBER" },
+                                    },
+                                    required: ["shape", "material", "x1", "y1"]
+                                }
+                            }
+                        },
+                        required: ["layers"]
+                    }
+                }
+            };
+            
+            const apiKey = ""; // API key is handled by the environment
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                
+                if (result.candidates && result.candidates[0].content && result.candidates[0].content.parts[0]) {
+                    const scenario = JSON.parse(result.candidates[0].content.parts[0].text);
+                    buildScenario(scenario);
+                } else {
+                    console.error("AI response was empty or invalid:", result);
+                    alert("Sorry, the AI failed to generate a scenario. Please try again.");
+                }
+            } catch (error) {
+                console.error("Error calling Gemini API:", error);
+                alert("An error occurred while generating the scenario. Check the console for details.");
+            } finally {
+                loaderModal.classList.add('hidden');
+            }
+        }
+
+        function buildScenario(scenario) {
+            grid.fill(EMPTY); // Clear the grid first
+            scenario.layers.forEach(layer => {
+                const materialType = materials[layer.material];
+                if (materialType === undefined) return;
+
+                const x1 = Math.floor(Math.max(0, Math.min(gridWidth - 1, layer.x1)));
+                const y1 = Math.floor(Math.max(0, Math.min(gridHeight - 1, layer.y1)));
+                const x2 = layer.x2 !== undefined ? Math.floor(Math.max(0, Math.min(gridWidth - 1, layer.x2))) : x1;
+                const y2 = layer.y2 !== undefined ? Math.floor(Math.max(0, Math.min(gridHeight - 1, layer.y2))) : y1;
+
+                if (layer.shape === 'rect') {
+                    for (let y = Math.min(y1, y2); y <= Math.max(y1, y2); y++) {
+                        for (let x = Math.min(x1, x2); x <= Math.max(x1, x2); x++) {
+                            setCell(x, y, materialType);
+                        }
+                    }
+                } else if (layer.shape === 'line') {
+                    let dx = Math.abs(x2 - x1), sx = x1 < x2 ? 1 : -1;
+                    let dy = -Math.abs(y2 - y1), sy = y1 < y2 ? 1 : -1;
+                    let err = dx + dy, e2;
+                    let curX = x1, curY = y1;
+                    while (true) {
+                        setCell(curX, curY, materialType);
+                        if (curX === x2 && curY === y2) break;
+                        e2 = 2 * err;
+                        if (e2 >= dy) { err += dy; curX += sx; }
+                        if (e2 <= dx) { err += dx; curY += sy; }
+                    }
+                }
+            });
         }
         
-        controlButtons.forEach(button => {
-            button.addEventListener('click', () => setActiveButton(button));
+        function saveGrid() {
+            try {
+                const data = {
+                    width: gridWidth,
+                    height: gridHeight,
+                    grid: Array.from(grid) 
+                };
+                const json = JSON.stringify(data);
+                const blob = new Blob([json], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'sand-sandbox-save.json';
+                a.click();
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error("Failed to save grid:", error);
+                alert("Could not save the sandbox state.");
+            }
+        }
+
+        function loadGrid() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = e => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = event => {
+                    try {
+                        const data = JSON.parse(event.target.result);
+                        if (data.width && data.height && data.grid) {
+                            gridWidth = data.width;
+                            gridHeight = data.height;
+                            canvas.width = gridWidth;
+                            canvas.height = gridHeight;
+                            gl.viewport(0, 0, gridWidth, gridHeight);
+                            grid = new Uint8Array(data.grid);
+                        } else {
+                            throw new Error("Invalid save file format.");
+                        }
+                    } catch (error) {
+                        console.error("Failed to load grid:", error);
+                        alert("Could not load the file. It might be corrupted or in the wrong format.");
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
+        // --- Event Listeners and Initialization ---
+        canvas.addEventListener('mousedown', (e) => { isMouseDown = true; paint(e); });
+        canvas.addEventListener('mouseup', () => { isMouseDown = false; });
+        canvas.addEventListener('mousemove', (e) => paint(e));
+        canvas.addEventListener('mouseleave', () => { isMouseDown = false; });
+        canvas.addEventListener('touchstart', (e) => { 
+            e.preventDefault();
+            isMouseDown = true; 
+            paint(e.touches[0]); 
+        }, { passive: false });
+        canvas.addEventListener('touchend', () => { isMouseDown = false; });
+        canvas.addEventListener('touchmove', (e) => { 
+            e.preventDefault(); 
+            paint(e.touches[0]); 
+        }, { passive: false });
+
+        const buttons = document.querySelectorAll('.control-button');
+        buttons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                buttons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                activeBrush = parseInt(btn.dataset.type);
+            });
         });
 
-        document.getElementById('clear-btn').addEventListener('click', () => {
-            grid.fill(EMPTY);
+        document.getElementById('brush-size').addEventListener('input', e => {
+            brushSize = parseInt(e.target.value);
+            document.getElementById('brush-size-label').textContent = brushSize;
         });
 
-        const brushSizeSlider = document.getElementById('brush-size');
-        const brushSizeLabel = document.getElementById('brush-size-label');
-        brushSizeSlider.addEventListener('input', (e) => {
-            brushSize = parseInt(e.target.value, 10);
-            brushSizeLabel.textContent = brushSize;
+        const pauseBtn = document.getElementById('pause-btn');
+        pauseBtn.addEventListener('click', () => {
+            isPaused = !isPaused;
+            pauseBtn.textContent = isPaused ? 'Resume' : 'Pause';
+            pauseBtn.classList.toggle('paused', isPaused);
         });
 
-        // --- Initialization ---
-        window.addEventListener('resize', () => {
-            initGrid();
-        });
+        document.getElementById('clear-btn').addEventListener('click', () => grid.fill(EMPTY));
+        document.getElementById('reset-btn').addEventListener('click', initGrid);
+        document.getElementById('generate-btn').addEventListener('click', generateScenario);
+        document.getElementById('save-btn').addEventListener('click', saveGrid);
+        document.getElementById('load-btn').addEventListener('click', loadGrid);
+        
+        window.addEventListener('resize', initGrid);
 
-        // Set initial state
-        setActiveButton(document.getElementById('sand-btn'));
-        brushSize = parseInt(brushSizeSlider.value, 10);
-        brushSizeLabel.textContent = brushSize;
+        // Init
         initGrid();
-        gameLoop();
-
+        requestAnimationFrame(loop);
+        document.getElementById('sand-btn').click();
     </script>
 </body>
 </html>
